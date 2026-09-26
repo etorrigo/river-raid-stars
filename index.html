@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>River Raid: Star Collector</title>
     <style>
         body {
-            margin: 0;
+            margin: 2;
             padding: 0;
             display: flex;
             justify-content: center;
@@ -28,7 +29,8 @@
 
         canvas {
             display: block;
-            background-color: #1a4f8b; /* Cor do rio */
+            background-color: #1a4f8b;
+            /* Cor do rio */
         }
 
         #hud {
@@ -62,7 +64,7 @@
             margin: 0 0 10px 0;
             color: #ff3333;
         }
-        
+
         #game-reason {
             font-size: 18px;
             color: #ffff00;
@@ -85,7 +87,7 @@
         button:hover {
             background-color: #45a049;
         }
-        
+
         .instructions {
             margin-top: 20px;
             text-align: center;
@@ -94,6 +96,7 @@
         }
     </style>
 </head>
+
 <body>
 
     <div id="game-container">
@@ -103,7 +106,7 @@
         </div>
         <canvas id="gameCanvas" width="600" height="800"></canvas>
         <div id="game-over">
-            <h1 id="game-over-title">FIM DE JOGO</h1>
+            <h1 id="game-over-title">FIM DE JOGO - MORREU!!! HAHA </h1>
             <div id="game-reason"></div>
             <p>Sua pontuação: <span id="final-score">0</span></p>
             <button onclick="resetGame()">Jogar Novamente</button>
@@ -174,7 +177,7 @@
             const height = 40;
             const minX = bankWidth + width / 2;
             const maxX = canvas.width - bankWidth - width / 2;
-            
+
             enemies.push({
                 x: Math.random() * (maxX - minX) + minX,
                 y: -height, // surge fora da tela em cima
@@ -182,7 +185,7 @@
                 height: height,
                 speed: Math.random() * 3 + 3 // velocidade entre 3 e 6
             });
-            
+
             // Agenda próximo inimigo
             setTimeout(spawnEnemy, Math.random() * 1500 + 500);
         }
@@ -193,7 +196,7 @@
             const height = 150;
             const minX = bankWidth + width / 2;
             const maxX = canvas.width - bankWidth - width / 2;
-            
+
             carriers.push({
                 x: Math.random() * (maxX - minX) + minX,
                 y: -height, // surge fora da tela em cima
@@ -202,7 +205,7 @@
                 speed: scrollSpeed, // move-se com o rio
                 collected: false
             });
-            
+
             // Agenda próximo porta-aviões
             setTimeout(spawnCarrier, Math.random() * 4000 + 3000);
         }
@@ -232,84 +235,84 @@
             // Bico do avião
             ctx.fillStyle = isEnemy ? '#333' : '#ccc';
             ctx.beginPath();
-            ctx.moveTo(0, -height/2);
-            ctx.lineTo(width/4, -height/4);
-            ctx.lineTo(width/4, height/2);
-            ctx.lineTo(-width/4, height/2);
-            ctx.lineTo(-width/4, -height/4);
+            ctx.moveTo(0, -height / 2);
+            ctx.lineTo(width / 4, -height / 4);
+            ctx.lineTo(width / 4, height / 2);
+            ctx.lineTo(-width / 4, height / 2);
+            ctx.lineTo(-width / 4, -height / 4);
             ctx.fill();
 
             // Asas
             ctx.fillStyle = isEnemy ? '#222' : '#aaa';
-            ctx.fillRect(-width/2, 0, width, height/4);
+            ctx.fillRect(-width / 2, 0, width, height / 4);
 
             // Cauda
             ctx.fillStyle = isEnemy ? '#ff9800' : '#d32f2f';
-            ctx.fillRect(-width/6, height/3, width/3, height/6);
-            ctx.fillRect(-width/3, height/2 - 5, width/1.5, 5);
-            
+            ctx.fillRect(-width / 6, height / 3, width / 3, height / 6);
+            ctx.fillRect(-width / 3, height / 2 - 5, width / 1.5, 5);
+
             // Cockpit
             ctx.fillStyle = isEnemy ? '#ff0000' : '#87CEFA';
             ctx.beginPath();
-            ctx.arc(0, -height/8, 4, 0, Math.PI * 2);
+            ctx.arc(0, -height / 8, 4, 0, Math.PI * 2);
             ctx.fill();
 
             ctx.restore();
         }
-        
+
         function drawExplosion(x, y) {
             ctx.save();
             ctx.translate(x, y);
-            
+
             // Fogo central
             ctx.fillStyle = '#FF4500';
             ctx.beginPath();
             ctx.arc(0, 0, 30, 0, Math.PI * 2);
             ctx.fill();
-            
+
             // Fogo médio
             ctx.fillStyle = '#FF8C00';
             ctx.beginPath();
             ctx.arc(0, 0, 20, 0, Math.PI * 2);
             ctx.fill();
-            
+
             // Amarelo interno
             ctx.fillStyle = '#FFFF00';
             ctx.beginPath();
             ctx.arc(0, 0, 10, 0, Math.PI * 2);
             ctx.fill();
-            
+
             ctx.restore();
         }
 
         function drawCarrier(carrier) {
             ctx.save();
             ctx.translate(carrier.x, carrier.y);
-            
+
             // Casco do navio
             ctx.fillStyle = '#555';
             ctx.beginPath();
-            ctx.moveTo(-carrier.width/2, -carrier.height/2 + 20);
-            ctx.lineTo(0, -carrier.height/2);
-            ctx.lineTo(carrier.width/2, -carrier.height/2 + 20);
-            ctx.lineTo(carrier.width/2, carrier.height/2);
-            ctx.lineTo(-carrier.width/2, carrier.height/2);
+            ctx.moveTo(-carrier.width / 2, -carrier.height / 2 + 20);
+            ctx.lineTo(0, -carrier.height / 2);
+            ctx.lineTo(carrier.width / 2, -carrier.height / 2 + 20);
+            ctx.lineTo(carrier.width / 2, carrier.height / 2);
+            ctx.lineTo(-carrier.width / 2, carrier.height / 2);
             ctx.fill();
 
             // Pista de pouso
             ctx.fillStyle = '#333';
-            ctx.fillRect(-carrier.width/4, -carrier.height/2 + 10, carrier.width/2, carrier.height - 20);
+            ctx.fillRect(-carrier.width / 4, -carrier.height / 2 + 10, carrier.width / 2, carrier.height - 20);
 
             // Linha central da pista
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 2;
             ctx.setLineDash([10, 10]);
             ctx.beginPath();
-            ctx.moveTo(0, -carrier.height/2 + 20);
-            ctx.lineTo(0, carrier.height/2 - 10);
+            ctx.moveTo(0, -carrier.height / 2 + 20);
+            ctx.lineTo(0, carrier.height / 2 - 10);
             ctx.stroke();
             ctx.setLineDash([]);
-            
+
             // Texto indicativo "+2" se foi pego
             if (carrier.collected) {
                 ctx.fillStyle = '#0f0';
@@ -395,12 +398,12 @@
             // Colisão com Inimigos (Morte)
             for (let enemy of enemies) {
                 // Checagem de caixa simples (AABB reduzida para ser mais justo)
-                const hitBoxShrink = 10; 
+                const hitBoxShrink = 10;
                 if (
-                    plane.x - plane.width/2 + hitBoxShrink < enemy.x + enemy.width/2 - hitBoxShrink &&
-                    plane.x + plane.width/2 - hitBoxShrink > enemy.x - enemy.width/2 + hitBoxShrink &&
-                    plane.y - plane.height/2 + hitBoxShrink < enemy.y + enemy.height/2 - hitBoxShrink &&
-                    plane.y + plane.height/2 - hitBoxShrink > enemy.y - enemy.height/2 + hitBoxShrink
+                    plane.x - plane.width / 2 + hitBoxShrink < enemy.x + enemy.width / 2 - hitBoxShrink &&
+                    plane.x + plane.width / 2 - hitBoxShrink > enemy.x - enemy.width / 2 + hitBoxShrink &&
+                    plane.y - plane.height / 2 + hitBoxShrink < enemy.y + enemy.height / 2 - hitBoxShrink &&
+                    plane.y + plane.height / 2 - hitBoxShrink > enemy.y - enemy.height / 2 + hitBoxShrink
                 ) {
                     // Bateu!
                     plane.exploded = true;
@@ -413,10 +416,10 @@
             for (let carrier of carriers) {
                 if (!carrier.collected) {
                     if (
-                        plane.x > carrier.x - carrier.width/2 &&
-                        plane.x < carrier.x + carrier.width/2 &&
-                        plane.y > carrier.y - carrier.height/2 &&
-                        plane.y < carrier.y + carrier.height/2
+                        plane.x > carrier.x - carrier.width / 2 &&
+                        plane.x < carrier.x + carrier.width / 2 &&
+                        plane.y > carrier.y - carrier.height / 2 &&
+                        plane.y < carrier.y + carrier.height / 2
                     ) {
                         carrier.collected = true;
                         score += 2;
@@ -428,21 +431,21 @@
 
         function update() {
             if (isGameOver && !plane.exploded) return; // Se acabou por tempo, para de rodar tudo.
-            
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawBackground();
-            
+
             // Desenha Porta-Aviões por baixo
             carriers.forEach(c => drawCarrier(c));
-            
+
             // Desenha Estrela
             if (star.active) {
                 drawStar(star.x, star.y, 5, 5, star.radius, star.radius / 2);
             }
-            
+
             // Desenha Inimigos
             enemies.forEach(e => drawPlane(e.x, e.y, e.width, e.height, true));
-            
+
             // Movimento e Colisões
             if (!isGameOver || plane.exploded) {
                 moveEntities();
@@ -457,9 +460,9 @@
             }
 
             if (!isGameOver || plane.exploded) {
-                 gameLoopId = requestAnimationFrame(update);
+                gameLoopId = requestAnimationFrame(update);
             }
-            
+
             // Se explodiu e é o fim de jogo, para a animação após desenhar a explosão
             if (plane.exploded && isGameOver) {
                 // Desenhar a explosão frame travado
@@ -493,7 +496,7 @@
         function endGame(reason) {
             isGameOver = true;
             clearInterval(timerId);
-            
+
             gameOverTitleElement.innerText = plane.exploded ? "KABOOM!" : "FIM DE JOGO";
             gameOverTitleElement.style.color = plane.exploded ? "#FF4500" : "#ff3333";
             gameReasonElement.innerText = reason;
@@ -506,25 +509,25 @@
             timeLeft = GAME_DURATION;
             isGameOver = false;
             plane.exploded = false;
-            
+
             enemies = [];
             carriers = [];
-            
+
             scoreElement.innerText = score;
             timeElement.innerText = timeLeft;
             gameOverElement.style.display = 'none';
-            
+
             plane.x = canvas.width / 2;
             plane.y = canvas.height - 100;
             plane.dx = 0;
             plane.dy = 0;
 
             spawnStar();
-            
+
             // Reinicia spawners
             setTimeout(spawnEnemy, 1000);
             setTimeout(spawnCarrier, 2000);
-            
+
             timerId = setInterval(tickTimer, 1000);
             update();
         }
@@ -537,4 +540,5 @@
         update();
     </script>
 </body>
+
 </html>
