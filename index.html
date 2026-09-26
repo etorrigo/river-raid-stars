@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>River Raid: Star Collector</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #222;
+            font-family: 'Courier New', Courier, monospace;
+            color: white;
+            flex-direction: column;
+        }
+
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            border: 4px solid #444;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            background-color: #1a4f8b; /* Cor do rio */
+        }
+
+        #hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 0 #000;
+            pointer-events: none;
+        }
+
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+            border: 2px solid #fff;
+            z-index: 10;
+        }
+
+        #game-over h1 {
+            margin: 0 0 10px 0;
+            color: #ff3333;
+        }
+        
+        #game-reason {
+            font-size: 18px;
+            color: #ffff00;
+            margin-bottom: 10px;
+        }
+
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 18px;
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        .instructions {
+            margin-top: 20px;
+            text-align: center;
+            color: #aaa;
+            max-width: 600px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="hud">
+            <div>Pontos: <span id="score">0</span></div>
+            <div>Tempo: <span id="time">30</span>s</div>
+        </div>
+        <canvas id="gameCanvas" width="600" height="800"></canvas>
+        <div id="game-over">
+            <h1 id="game-over-title">FIM DE JOGO</h1>
+            <div id="game-reason"></div>
+            <p>Sua pontuação: <span id="final-score">0</span></p>
+            <button onclick="resetGame()">Jogar Novamente</button>
+        </div>
+    </div>
+    <div class="instructions">
+        Use as setas do teclado para mover o avião.<br>
+        Colete <b>estrelas</b> (1 ponto) e passe sobre <b>porta-aviões</b> (2 pontos).<br>
+        Cuidado com os <b>aviões inimigos</b>! Se bater neles, você explode.
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const timeElement = document.getElementById('time');
+        const gameOverElement = document.getElementById('game-over');
+        const finalScoreElement = document.getElementById('final-score');
+        const gameReasonElement = document.getElementById('game-reason');
+        const gameOverTitleElement = document.getElementById('game-over-title');
+
+        // Configurações do Jogo
+        const GAME_DURATION = 30;
+        let score = 0;
+        let timeLeft = GAME_DURATION;
+        let gameLoopId;
+        let timerId;
+        let isGameOver = false;
+
+        // Margens do Rio
+        const bankWidth = 100;
+
+        // Rolagem
+        let bgOffsetY = 0;
+        const scrollSpeed = 2;
+
+        // Entidade: Jogador
+        const plane = {
+            x: canvas.width / 2,
+            y: canvas.height - 100,
+            width: 40,
+            height: 40,
+            speed: 6,
+            dx: 0,
+            dy: 0,
+            exploded: false
+        };
+
+        // Outras Entidades
+        let star = { x: 0, y: 0, radius: 12, color: '#FFD700', active: false };
+        let enemies = [];
+        let carriers = [];
+
+        function spawnStar() {
+            const minX = bankWidth + star.radius + 10;
+            const maxX = canvas.width - bankWidth - star.radius - 10;
+            const minY = star.radius + 10;
+            const maxY = canvas.height - star.radius - 10;
+
+            star.x = Math.random() * (maxX - minX) + minX;
+            star.y = Math.random() * (maxY - minY) + minY;
+            star.active = true;
+        }
+
+        function spawnEnemy() {
+            if (isGameOver) return;
+            const width = 40;
+            const height = 40;
+            const minX = bankWidth + width / 2;
+            const maxX = canvas.width - bankWidth - width / 2;
+            
+            enemies.push({
+                x: Math.random() * (maxX - minX) + minX,
+                y: -height, // surge fora da tela em cima
+                width: width,
+                height: height,
+                speed: Math.random() * 3 + 3 // velocidade entre 3 e 6
+            });
+            
+            // Agenda próximo inimigo
+            setTimeout(spawnEnemy, Math.random() * 1500 + 500);
+        }
+
+        function spawnCarrier() {
+            if (isGameOver) return;
+            const width = 60;
+            const height = 150;
+            const minX = bankWidth + width / 2;
+            const maxX = canvas.width - bankWidth - width / 2;
+            
+            carriers.push({
+                x: Math.random() * (maxX - minX) + minX,
+                y: -height, // surge fora da tela em cima
+                width: width,
+                height: height,
+                speed: scrollSpeed, // move-se com o rio
+                collected: false
+            });
+            
+            // Agenda próximo porta-aviões
+            setTimeout(spawnCarrier, Math.random() * 4000 + 3000);
+        }
+
+        function drawBackground() {
+            bgOffsetY = (bgOffsetY + scrollSpeed) % canvas.height;
+            ctx.fillStyle = '#2d5a27';
+            ctx.fillRect(0, 0, bankWidth, canvas.height);
+            ctx.fillRect(canvas.width - bankWidth, 0, bankWidth, canvas.height);
+            ctx.fillStyle = '#1e3c1a';
+            for (let i = -1; i <= canvas.height / 100 + 1; i++) {
+                let yPos = i * 100 + bgOffsetY;
+                ctx.fillRect(20, yPos, 40, 20);
+                ctx.fillRect(canvas.width - 80, yPos, 40, 20);
+            }
+        }
+
+        function drawPlane(x, y, width, height, isEnemy) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            if (isEnemy) {
+                // Inimigos apontam para baixo
+                ctx.rotate(Math.PI);
+            }
+
+            // Bico do avião
+            ctx.fillStyle = isEnemy ? '#333' : '#ccc';
+            ctx.beginPath();
+            ctx.moveTo(0, -height/2);
+            ctx.lineTo(width/4, -height/4);
+            ctx.lineTo(width/4, height/2);
+            ctx.lineTo(-width/4, height/2);
+            ctx.lineTo(-width/4, -height/4);
+            ctx.fill();
+
+            // Asas
+            ctx.fillStyle = isEnemy ? '#222' : '#aaa';
+            ctx.fillRect(-width/2, 0, width, height/4);
+
+            // Cauda
+            ctx.fillStyle = isEnemy ? '#ff9800' : '#d32f2f';
+            ctx.fillRect(-width/6, height/3, width/3, height/6);
+            ctx.fillRect(-width/3, height/2 - 5, width/1.5, 5);
+            
+            // Cockpit
+            ctx.fillStyle = isEnemy ? '#ff0000' : '#87CEFA';
+            ctx.beginPath();
+            ctx.arc(0, -height/8, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+        
+        function drawExplosion(x, y) {
+            ctx.save();
+            ctx.translate(x, y);
+            
+            // Fogo central
+            ctx.fillStyle = '#FF4500';
+            ctx.beginPath();
+            ctx.arc(0, 0, 30, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Fogo médio
+            ctx.fillStyle = '#FF8C00';
+            ctx.beginPath();
+            ctx.arc(0, 0, 20, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Amarelo interno
+            ctx.fillStyle = '#FFFF00';
+            ctx.beginPath();
+            ctx.arc(0, 0, 10, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
+        }
+
+        function drawCarrier(carrier) {
+            ctx.save();
+            ctx.translate(carrier.x, carrier.y);
+            
+            // Casco do navio
+            ctx.fillStyle = '#555';
+            ctx.beginPath();
+            ctx.moveTo(-carrier.width/2, -carrier.height/2 + 20);
+            ctx.lineTo(0, -carrier.height/2);
+            ctx.lineTo(carrier.width/2, -carrier.height/2 + 20);
+            ctx.lineTo(carrier.width/2, carrier.height/2);
+            ctx.lineTo(-carrier.width/2, carrier.height/2);
+            ctx.fill();
+
+            // Pista de pouso
+            ctx.fillStyle = '#333';
+            ctx.fillRect(-carrier.width/4, -carrier.height/2 + 10, carrier.width/2, carrier.height - 20);
+
+            // Linha central da pista
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.moveTo(0, -carrier.height/2 + 20);
+            ctx.lineTo(0, carrier.height/2 - 10);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Texto indicativo "+2" se foi pego
+            if (carrier.collected) {
+                ctx.fillStyle = '#0f0';
+                ctx.font = '20px Arial';
+                ctx.fillText('+2', -10, 0);
+            }
+
+            ctx.restore();
+        }
+
+        function drawStar(x, y, radius, spikes, outerRadius, innerRadius) {
+            let rot = Math.PI / 2 * 3;
+            let cx = x;
+            let cy = y;
+            let step = Math.PI / spikes;
+
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - outerRadius)
+            for (let i = 0; i < spikes; i++) {
+                cx = x + Math.cos(rot) * outerRadius;
+                cy = y + Math.sin(rot) * outerRadius;
+                ctx.lineTo(cx, cy)
+                rot += step
+
+                cx = x + Math.cos(rot) * innerRadius;
+                cy = y + Math.sin(rot) * innerRadius;
+                ctx.lineTo(cx, cy)
+                rot += step
+            }
+            ctx.lineTo(x, y - outerRadius)
+            ctx.closePath();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = 'black';
+            ctx.stroke();
+            ctx.fillStyle = star.color;
+            ctx.fill();
+        }
+
+        function moveEntities() {
+            // Move jogador
+            if (!plane.exploded) {
+                plane.x += plane.dx;
+                plane.y += plane.dy;
+
+                if (plane.x < bankWidth + plane.width / 2) plane.x = bankWidth + plane.width / 2;
+                if (plane.x > canvas.width - bankWidth - plane.width / 2) plane.x = canvas.width - bankWidth - plane.width / 2;
+                if (plane.y < plane.height / 2) plane.y = plane.height / 2;
+                if (plane.y > canvas.height - plane.height / 2) plane.y = canvas.height - plane.height / 2;
+            }
+
+            // Move Inimigos
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                enemies[i].y += enemies[i].speed;
+                // Remove se sair da tela
+                if (enemies[i].y > canvas.height + enemies[i].height) {
+                    enemies.splice(i, 1);
+                }
+            }
+
+            // Move Porta-Aviões
+            for (let i = carriers.length - 1; i >= 0; i--) {
+                carriers[i].y += carriers[i].speed;
+                if (carriers[i].y > canvas.height + carriers[i].height) {
+                    carriers.splice(i, 1);
+                }
+            }
+        }
+
+        function checkCollisions() {
+            if (plane.exploded) return;
+
+            // Colisão com Estrela
+            if (star.active) {
+                const dist = Math.hypot(plane.x - star.x, plane.y - star.y);
+                if (dist < star.radius + plane.width / 3) {
+                    score += 1;
+                    scoreElement.innerText = score;
+                    star.active = false;
+                    setTimeout(spawnStar, 200);
+                }
+            }
+
+            // Colisão com Inimigos (Morte)
+            for (let enemy of enemies) {
+                // Checagem de caixa simples (AABB reduzida para ser mais justo)
+                const hitBoxShrink = 10; 
+                if (
+                    plane.x - plane.width/2 + hitBoxShrink < enemy.x + enemy.width/2 - hitBoxShrink &&
+                    plane.x + plane.width/2 - hitBoxShrink > enemy.x - enemy.width/2 + hitBoxShrink &&
+                    plane.y - plane.height/2 + hitBoxShrink < enemy.y + enemy.height/2 - hitBoxShrink &&
+                    plane.y + plane.height/2 - hitBoxShrink > enemy.y - enemy.height/2 + hitBoxShrink
+                ) {
+                    // Bateu!
+                    plane.exploded = true;
+                    endGame("Você bateu em um inimigo!");
+                    return;
+                }
+            }
+
+            // Passar sobre Porta-Aviões (Pontos)
+            for (let carrier of carriers) {
+                if (!carrier.collected) {
+                    if (
+                        plane.x > carrier.x - carrier.width/2 &&
+                        plane.x < carrier.x + carrier.width/2 &&
+                        plane.y > carrier.y - carrier.height/2 &&
+                        plane.y < carrier.y + carrier.height/2
+                    ) {
+                        carrier.collected = true;
+                        score += 2;
+                        scoreElement.innerText = score;
+                    }
+                }
+            }
+        }
+
+        function update() {
+            if (isGameOver && !plane.exploded) return; // Se acabou por tempo, para de rodar tudo.
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBackground();
+            
+            // Desenha Porta-Aviões por baixo
+            carriers.forEach(c => drawCarrier(c));
+            
+            // Desenha Estrela
+            if (star.active) {
+                drawStar(star.x, star.y, 5, 5, star.radius, star.radius / 2);
+            }
+            
+            // Desenha Inimigos
+            enemies.forEach(e => drawPlane(e.x, e.y, e.width, e.height, true));
+            
+            // Movimento e Colisões
+            if (!isGameOver || plane.exploded) {
+                moveEntities();
+                checkCollisions();
+            }
+
+            // Desenha Jogador
+            if (plane.exploded) {
+                drawExplosion(plane.x, plane.y);
+            } else {
+                drawPlane(plane.x, plane.y, plane.width, plane.height, false);
+            }
+
+            if (!isGameOver || plane.exploded) {
+                 gameLoopId = requestAnimationFrame(update);
+            }
+            
+            // Se explodiu e é o fim de jogo, para a animação após desenhar a explosão
+            if (plane.exploded && isGameOver) {
+                // Desenhar a explosão frame travado
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (plane.exploded) return;
+            if (e.key === 'ArrowRight' || e.key === 'Right') plane.dx = plane.speed;
+            else if (e.key === 'ArrowLeft' || e.key === 'Left') plane.dx = -plane.speed;
+            else if (e.key === 'ArrowUp' || e.key === 'Up') plane.dy = -plane.speed;
+            else if (e.key === 'ArrowDown' || e.key === 'Down') plane.dy = plane.speed;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (plane.exploded) return;
+            if (e.key === 'ArrowRight' || e.key === 'Right' || e.key === 'ArrowLeft' || e.key === 'Left') plane.dx = 0;
+            if (e.key === 'ArrowUp' || e.key === 'Up' || e.key === 'ArrowDown' || e.key === 'Down') plane.dy = 0;
+        });
+
+        function tickTimer() {
+            if (isGameOver) return;
+            timeLeft--;
+            timeElement.innerText = timeLeft;
+
+            if (timeLeft <= 0) {
+                endGame("O tempo acabou!");
+            }
+        }
+
+        function endGame(reason) {
+            isGameOver = true;
+            clearInterval(timerId);
+            
+            gameOverTitleElement.innerText = plane.exploded ? "KABOOM!" : "FIM DE JOGO";
+            gameOverTitleElement.style.color = plane.exploded ? "#FF4500" : "#ff3333";
+            gameReasonElement.innerText = reason;
+            finalScoreElement.innerText = score;
+            gameOverElement.style.display = 'block';
+        }
+
+        function resetGame() {
+            score = 0;
+            timeLeft = GAME_DURATION;
+            isGameOver = false;
+            plane.exploded = false;
+            
+            enemies = [];
+            carriers = [];
+            
+            scoreElement.innerText = score;
+            timeElement.innerText = timeLeft;
+            gameOverElement.style.display = 'none';
+            
+            plane.x = canvas.width / 2;
+            plane.y = canvas.height - 100;
+            plane.dx = 0;
+            plane.dy = 0;
+
+            spawnStar();
+            
+            // Reinicia spawners
+            setTimeout(spawnEnemy, 1000);
+            setTimeout(spawnCarrier, 2000);
+            
+            timerId = setInterval(tickTimer, 1000);
+            update();
+        }
+
+        // Iniciar Jogo
+        spawnStar();
+        setTimeout(spawnEnemy, 1000);
+        setTimeout(spawnCarrier, 2000);
+        timerId = setInterval(tickTimer, 1000);
+        update();
+    </script>
+</body>
+</html>
