@@ -7,7 +7,7 @@
     <title>River Raid: Star Collector</title>
     <style>
         body {
-            margin: 2;
+            margin: 0;
             padding: 0;
             display: flex;
             justify-content: center;
@@ -17,6 +17,10 @@
             font-family: 'Courier New', Courier, monospace;
             color: white;
             flex-direction: column;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            overflow: hidden;
         }
 
         #game-container {
@@ -25,12 +29,21 @@
             border: 4px solid #444;
             border-radius: 8px;
             overflow: hidden;
+            max-width: 95vw;
+            max-height: 80vh;
+            aspect-ratio: 3 / 4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
         canvas {
             display: block;
             background-color: #1a4f8b;
             /* Cor do rio */
+            width: 100%;
+            height: 100%;
+            touch-action: none;
         }
 
         #hud {
@@ -102,18 +115,18 @@
     <div id="game-container">
         <div id="hud">
             <div>Pontos: <span id="score">0</span></div>
-            <div>Tempo: <span id="time">30</span>s</div>
+            <div>Tempo: <span id="time">45</span>s</div>
         </div>
         <canvas id="gameCanvas" width="600" height="800"></canvas>
         <div id="game-over">
             <h1 id="game-over-title">FIM DE JOGO - MORREU!!! HAHA </h1>
             <div id="game-reason"></div>
             <p>Sua pontuação: <span id="final-score">0</span></p>
-            <button onclick="resetGame()">Jogar Novamente</button>
+            <button onclick="resetGame()">Quer tentar de novo muleque?</button>
         </div>
     </div>
     <div class="instructions">
-        Use as setas do teclado para mover o avião AMIGO <br>
+        Use as setas do teclado ou **arraste o dedo na tela** para mover o avião AMIGO <br>
         Colete <b>estrelas</b> (1 ponto) e passe sobre <b>porta-aviões</b> (2 pontos).<br>
         Cuidado com os <b>aviões inimigos</b>! Se bater neles, você explode.
     </div>
@@ -129,7 +142,7 @@
         const gameOverTitleElement = document.getElementById('game-over-title');
 
         // Configurações do Jogo
-        const GAME_DURATION = 30;
+        const GAME_DURATION = 45;
         let score = 0;
         let timeLeft = GAME_DURATION;
         let gameLoopId;
@@ -483,6 +496,71 @@
             if (e.key === 'ArrowUp' || e.key === 'Up' || e.key === 'ArrowDown' || e.key === 'Down') plane.dy = 0;
         });
 
+        // Controles Touch / Arrastar (Mobile e Mouse)
+        let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let planeStartX = 0;
+        let planeStartY = 0;
+
+        function handleDragStart(clientX, clientY) {
+            if (plane.exploded || isGameOver) return;
+            isDragging = true;
+            dragStartX = clientX;
+            dragStartY = clientY;
+            planeStartX = plane.x;
+            planeStartY = plane.y;
+        }
+
+        function handleDragMove(clientX, clientY) {
+            if (!isDragging || plane.exploded || isGameOver) return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+
+            const deltaX = (clientX - dragStartX) * scaleX;
+            const deltaY = (clientY - dragStartY) * scaleY;
+
+            plane.x = planeStartX + deltaX;
+            plane.y = planeStartY + deltaY;
+        }
+
+        function handleDragEnd() {
+            isDragging = false;
+        }
+
+        // Eventos Touch (Celular - arrastar para frente, trás e lados)
+        window.addEventListener('touchstart', (e) => {
+            if (e.target === canvas || e.target.closest('#game-container')) {
+                const touch = e.touches[0];
+                handleDragStart(touch.clientX, touch.clientY);
+            }
+        }, { passive: false });
+
+        window.addEventListener('touchmove', (e) => {
+            if (isDragging) {
+                if (e.cancelable) e.preventDefault();
+                const touch = e.touches[0];
+                handleDragMove(touch.clientX, touch.clientY);
+            }
+        }, { passive: false });
+
+        window.addEventListener('touchend', handleDragEnd);
+        window.addEventListener('touchcancel', handleDragEnd);
+
+        // Eventos de Mouse (para testes no Desktop)
+        canvas.addEventListener('mousedown', (e) => {
+            handleDragStart(e.clientX, e.clientY);
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                handleDragMove(e.clientX, e.clientY);
+            }
+        });
+
+        window.addEventListener('mouseup', handleDragEnd);
+
         function tickTimer() {
             if (isGameOver) return;
             timeLeft--;
@@ -495,6 +573,7 @@
 
         function endGame(reason) {
             isGameOver = true;
+            isDragging = false;
             clearInterval(timerId);
 
             gameOverTitleElement.innerText = plane.exploded ? "KABOOM!" : "FIM DE JOGO";
@@ -509,6 +588,7 @@
             timeLeft = GAME_DURATION;
             isGameOver = false;
             plane.exploded = false;
+            isDragging = false;
 
             enemies = [];
             carriers = [];
